@@ -3,7 +3,7 @@
 import sys
 import os
 
-from PySide2.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QGraphicsScene, QGraphicsView, QWidget, QLabel, QTextEdit, QTextBrowser, QLineEdit, QSpacerItem, QSizePolicy, QMessageBox, QSlider, QGridLayout)
+from PySide2.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QGraphicsScene, QGraphicsView, QWidget, QLabel, QTextEdit, QTextBrowser, QLineEdit, QSpacerItem, QSizePolicy, QMessageBox, QSlider, QGridLayout, QProgressBar)
 from PySide2.QtCore import Qt
 from PySide2.QtGui import QPixmap, QImage, QPainter, QBrush, QFont
 
@@ -46,12 +46,12 @@ class MapView(QGraphicsView):
         self.markerPoint = [x, y]
         self.update()
 
-    def paintEvent(self,event) :
+    def paintEvent(self,event):
         super().paintEvent(event)
         self.repaint()
 
     def repaint(self):
-        if self.backgroundImage :
+        if self.backgroundImage:
             tmpimg = QImage(self.backgroundImage)
             painter = QPainter()    # マーカをアイコンに（fontawesome）
             painter.begin(tmpimg)
@@ -76,6 +76,19 @@ class UIView(QGraphicsView):
         self.font = QFont("Arial", 20)
         self.sendSliderCB = None
 
+        # バッテリー残量
+        self.battery = QProgressBar()
+        self.battery.setRange(10, 26.5)
+        self.battery_label = QLabel("バッテリー残量")
+        self.battery_label.setFont(self.font)
+        self.battery_value = QLabel("20.0")
+        self.battery_value.setFont(self.font)
+
+        # サーバからwaypointsを取得
+        self.waypoint_button = QPushButton("waypointを取得")
+        self.waypoint_button.setFont(self.font)
+        self.waypoint_button.clicked.connect(self.waypointRequest)
+
         # マニュアル移動ボタン
         self.left_button =  QPushButton(" ◁ LEFT ")
         self.left_button.setFont(self.font)
@@ -94,11 +107,13 @@ class UIView(QGraphicsView):
         self.cylinder_slider.setMaximum(292)
         self.cylinder_slider.valueChanged.connect(self.changedValue)
 
-        self.cylinder_label = QLabel("0")
+        self.cylinder_label = QLabel("100")
+        self.cylinder_label.setText(str(2))
         self.cylinder_label.setFont(self.font)
         self.cylinder_label.setAlignment(Qt.AlignCenter | Qt.AlignBottom)
 
-        self.cylinder_button = QPushButton("UPDATE")
+        self.cylinder_button = QPushButton("更新")
+        self.cylinder_button.resize(2, 1)
         self.cylinder_button.setFont(self.font)
         self.cylinder_button.clicked.connect(self.update_height)
 
@@ -114,19 +129,37 @@ class UIView(QGraphicsView):
         }"""
         self.log_box.setStyleSheet(self.label_style)
         self.log_box.setAlignment(Qt.AlignTop)
-        
-        layout = QGridLayout()
-        layout.addWidget(self.left_button, 0, 0)
-        layout.addWidget(self.up_button, 0, 1)
-        layout.addWidget(self.down_button, 0, 2)
-        layout.addWidget(self.right_button, 0, 3)
 
-        layout.addWidget(self.cylinder_label, 1, 0)
-        layout.addWidget(self.cylinder_slider, 1, 1, 2, 1)
-        layout.addWidget(self.cylinder_button, 2, 0)
 
-        layout.addWidget(self.log_box, 1, 2, 2, 3)
-        self.setLayout(layout)
+        # 水平レイアウト1. バッテリー
+        layout1 = QHBoxLayout()
+        layout1.addWidget(self.battery_label)
+        layout1.addWidget(self.battery)
+        layout1.addWidget(self.battery_value)
+
+        # 水平レイアウト2. マニュアル移動ボタン
+        layout2 = QHBoxLayout()
+        layout2.addWidget(self.left_button)
+        layout2.addWidget(self.up_button)
+        layout2.addWidget(self.down_button)
+        layout2.addWidget(self.right_button)
+
+        # グリッドレイアウト3. スライダのラベルとボタン
+        layout3 = QGridLayout()
+        layout3.addWidget(self.cylinder_label, 1, 0)
+        layout3.addWidget(self.cylinder_slider, 1, 1, 2, 1)
+        layout3.addWidget(self.cylinder_button, 2, 0)
+
+        layout3.addWidget(self.log_box, 1, 2, 2, 3)
+
+        # # 作成済みのレイアウトを垂直方向に並べる
+        parentLayout = QVBoxLayout()
+        parentLayout.addLayout(layout1)
+        parentLayout.addWidget(self.waypoint_button)
+        parentLayout.addLayout(layout2)
+        parentLayout.addLayout(layout3)
+
+        self.setLayout(parentLayout)
 
 
     ### スライダの情報を取得しサーバへ送信
@@ -143,10 +176,17 @@ class UIView(QGraphicsView):
             self.sendSliderCB(z)
             print("[Send params]   cylinder_pos: " + str(z))
 
+    ## waypointをCAから取得するためのリクエストを送信
+    def setSendRequestCB(self, func):
+        self.sendRequestCB = func
+
+    def waypointRequest(self):
+        if not self.sendRequestCB is None:
+            self.sendRequestCB('waypoint')
 
 
 class mainView(QMainWindow) :
-    def __init__(self) :
+    def __init__(self):
         super().__init__()
         self.setWindowTitle("水道橋Map")
         self.resize(1580, 580)
@@ -162,12 +202,12 @@ class mainView(QMainWindow) :
 
         self.uiImage = UIView()
         self.uiImage.setSendSliderCB(self.sendSlider)
+        self.uiImage.setSendRequestCB(self.sendRequest)
 
         dummy_l = 0.0
         for _ in range(10):
             dummy_l = _
-            self.sendBlank(dummy_l)    ## 何かを送りつけるテスト
-            print("generate L" + str(dummy_l))
+            self.sendRequest(dummy_l)    ## 何かを送りつけるテスト
 
         # サイズポリシーを取得 （サイズ比を Map:UI=2:1 に）
         self.sizePolicy_map = self.mapImage.sizePolicy()
@@ -214,8 +254,10 @@ class mainView(QMainWindow) :
             ty = jsoncmd['pos_y']
             tz = jsoncmd['ori_z']
             log_info = ("[ROS][INFO]\n[" + str(dt) + "]\n" + str(tv) + ",\n" + str(tx) + ",\n" + str(ty) + ",\n" + str(jsoncmd['pos_z']) + ",\n" + str(tz) + ",\n" + str(jsoncmd['ori_w']))
-            self.uiImage.log_box.setText(log_info)   # UIに表示
-            # self.mapImage.setMarkerPoint(tx,ty)      # 地図に自己位置を表示
+            self.uiImage.battery.setValue(tv)        # UIにバッテリー残量を表示
+            self.uiImage.battery_value.setText(str(round(tv, 1)))
+            self.uiImage.log_box.setText(log_info)   # UIにログを表示
+            # self.mapImage.setMarkerPoint(tx,ty)   # 地図に自己位置を表示
             # self.mapImage.repaint()
 
 
@@ -235,13 +277,12 @@ class mainView(QMainWindow) :
         jsonmsg = {'targets' : targetID, 'message' : json.dumps(jsoncmd)}
         self.capfWebSocket.send(json.dumps(jsonmsg))
 
-    def sendBlank(self, l) :
-        self.blank = l
-        jsonparam = {'blank' : self.blank}
-        jsoncmd = {'dummy' : 'other', 'param' : json.dumps(jsonparam)}
+    def sendRequest(self, content) :
+        jsonparam = {'msg' :content}
+        jsoncmd = {'request' : 'other', 'param' : json.dumps(jsonparam)}
         jsonmsg = {'targets' : targetID, 'message' : json.dumps(jsoncmd)}
         self.capfWebSocket.send(json.dumps(jsonmsg))
-        print("send L")
+        print("[Send request]   " + str(content))
 
 
 if __name__ == '__main__' :
