@@ -1,5 +1,6 @@
 # Byte-completed / optimized / DIL files © 2023 GitHub, Inc.
 __pycache__/
+.vscode/
 .DS_Store
 *.py[cod]
 *$py.class
