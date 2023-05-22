@@ -98,8 +98,10 @@ class WebSocketCapf() :
             print('Error : ' + self.loginurl + " response : " + str(r.status_code))
             return False
 
-        if r.text is None :
+        if r.text is None or r.text == '' or r.text[0] == '<' : # htmlが返ってきたときもエラー
             return False
+        
+        
         jdic = json.loads(r.text)
         if "authorisation" in jdic.keys():
             authorisation = jdic["authorisation"]
