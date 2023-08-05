@@ -18,8 +18,8 @@ from playsound import playsound
 chimefile = '/Users/shogo/chime.wav'    # ファイル名は絶対パスで書く
 
 selfID = 'OP002SA'
-# targetID = 'CA003'
-targetID = 'CA004'
+targetID = 'CA003'
+#targetID = 'CA004'
 
 WAYPOINT_X = []
 WAYPOINT_Y = []
@@ -234,6 +234,10 @@ class mainView(QMainWindow) :
         self.battery_value = QLabel("20.0")
         self.battery_value.setFont(self.font)
 
+        self._image_size = (1451, 668)
+        self._origin = (-55.859167, -11.171094)
+        self._map_resolution = 0.05
+
         # UI / シリンダー昇降ボタン
         self.cylinder_slider = QSlider(Qt.Vertical)
         self.cylinder_slider.setTickPosition(QSlider.TicksBelow)
@@ -350,8 +354,11 @@ class mainView(QMainWindow) :
             self.log_box.setText(log_info)   # UIにログを表示
 
             # 地図上に自己位置を描画するための座標変換
-            SELF_X = round(tx * 82.3 + 689, 2)
-            SELF_Y = round(ty * -79.8 + 448, 2)
+            origin_px: (int, int) = (int(self._origin[0] / self._map_resolution) * -1,
+                                     self._image_size[1] + int(self._origin[1] / self._map_resolution))
+            position_px_offset = self._coord_to_px_offset(self._image_size, origin_px, self._map_resolution, (SELF_X, SELF_Y))
+            SELF_X = origin_px[0] + position_px_offset[0]
+            SELF_Y = origin_px[1] - position_px_offset[1]
             SELF_YAW = round((tz * -2.8158 + 1.9479)*180/math.pi, 2)
 
 
@@ -418,17 +425,30 @@ class mainView(QMainWindow) :
                 result = False
         return result
 
+    def _coord_to_px_offset(self, image_shape, origin_px: (int, int), resolution: float, coord: (float, float)) -> (int, int):
+        x = int((coord[0] / resolution))
+        y = int((coord[1] / resolution))
+
+        x = -origin_px[0] if origin_px[0] + x < 0 else x
+        x = image_shape[0] - 1 - origin_px[0] if origin_px[0] + x >= image_shape[0] else x
+        y = origin_px[1] if origin_px[1] - y < 0 else y
+        y = -(image_shape[1] - 1 - origin_px[1]) if origin_px[1] + -y >= image_shape[1] else y
+
+        return x, y
     ## 座標変換（xyのみ 配列に使用）
     def xy_transform(self, list_x, list_y):
+        origin_px: (int, int) = (int(self._origin[0] / self._map_resolution) * -1,
+                                 self._image_size[1] + int(self._origin[1] / self._map_resolution))
         for i in range(len(list_x)):
-            list_x[i] = 82.3*list_x[i] + 689
-            list_y[i] = -79.8*list_y[i] + 448
+            position_px_offset = self._coord_to_px_offset(self._image_size, origin_px, self._map_resolution, (list_x[i], list_y[i]))
+            list_x[i] = origin_px[0] + position_px_offset[0]
+            list_y[i] = origin_px[1] - position_px_offset[1]
         return list_x, list_y
 
 
 if __name__ == '__main__' :
     app = QApplication(sys.argv)
-    image = QImage('map_atr3f.png')
+    image = QImage('map_atr1f.png')
     window = mainView()
     window.setImage(image)
     app.exec_()
