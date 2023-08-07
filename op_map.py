@@ -3,6 +3,7 @@
 
 import sys
 import os
+from math import atan2, pi
 
 from PySide2.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, QGraphicsScene, QGraphicsView, QWidget, QLabel, QTextEdit, QTextBrowser, QLineEdit, QSpacerItem, QSizePolicy, QMessageBox, QSlider, QGridLayout, QProgressBar)
 from PySide2.QtCore import (Qt, QPoint, QRectF, QPointF, QRect, QTimer)
@@ -18,8 +19,8 @@ from playsound import playsound
 chimefile = '/Users/shogo/chime.wav'    # ファイル名は絶対パスで書く
 
 selfID = 'OP002SA'
-targetID = 'CA003'
-#targetID = 'CA004'
+#targetID = 'CA003'
+targetID = 'CA004'
 
 WAYPOINT_X = []
 WAYPOINT_Y = []
@@ -118,7 +119,7 @@ class MapView(QGraphicsView):
                 # 自己位置の画像
                 selfimg = QPixmap.fromImage(self.selfImage)
                 t = QTransform()
-                t.rotate(SELF_YAW)
+                t.rotateRadians(SELF_YAW)
                 t.scale(0.15, 0.15)
                 selfimg = selfimg.transformed(t)
                 painter.drawPixmap(SELF_X-64-self.markerPoint[0], SELF_Y-64-self.markerPoint[1], selfimg)
@@ -345,9 +346,12 @@ class mainView(QMainWindow) :
             tv = jsoncmd['voltage']
             tx = jsoncmd['pos_x']
             ty = jsoncmd['pos_y']
-            tz = jsoncmd['ori_z']
-            log_info = ("[ROS][INFO]\n 【" + dt.strftime('%Y/%m/%d %H:%M:%S') + " 】\n [power]   " + str(round(tv, 4)) + ",\n [pos x]   " + str(round(tx, 4)) + ",\n [pos y]   " + str(round(ty, 4)) + ",\n [pos z]   " + str(round(jsoncmd['pos_z'], 4)) + ",\n [rot z]   " + str(round(tz, 4)) + ",\n [rot w]   " + str(round(jsoncmd['ori_w'], 4)))
-            # print(log_info)
+            rx = jsoncmd['ori_x']
+            ry = jsoncmd['ori_y']
+            rz = jsoncmd['ori_z']
+            rw = jsoncmd['ori_w']
+            log_info = ("[ROS][INFO]\n 【" + dt.strftime('%Y/%m/%d %H:%M:%S') + " 】\n [power]   " + str(round(tv, 4)) + ",\n [pos x]   " + str(round(tx, 4)) + ",\n [pos y]   " + str(round(ty, 4)) + ",\n [pos z]   " + str(round(jsoncmd['pos_z'], 4)) + ",\n [rot z]   " + str(round(rz, 4)) + ",\n [rot w]   " + str(round(rw, 4)))
+            print(log_info)
 
             self.battery.setValue(tv)        # UIにバッテリー残量を表示
             self.battery_value.setText(str(round(tv, 1)))
@@ -356,11 +360,15 @@ class mainView(QMainWindow) :
             # 地図上に自己位置を描画するための座標変換
             origin_px: (int, int) = (int(self._origin[0] / self._map_resolution) * -1,
                                      self._image_size[1] + int(self._origin[1] / self._map_resolution))
-            position_px_offset = self._coord_to_px_offset(self._image_size, origin_px, self._map_resolution, (SELF_X, SELF_Y))
+            position_px_offset = self._coord_to_px_offset(self._image_size, origin_px, self._map_resolution, (tx, ty))
             SELF_X = origin_px[0] + position_px_offset[0]
             SELF_Y = origin_px[1] - position_px_offset[1]
-            SELF_YAW = round((tz * -2.8158 + 1.9479)*180/math.pi, 2)
-
+            #SELF_YAW = round((tz * -2.8158 + 1.9479)*180/math.pi, 2)
+            SELF_YAW = atan2(2.0 * (rw * rz + rx * ry), rw * rw + rx * rx - ry * ry - rz * rz)
+            SELF_YAW = SELF_YAW if SELF_YAW > 0.0 else 2 * pi + SELF_YAW
+            SELF_YAW = SELF_YAW if SELF_YAW <= 2 * pi else SELF_YAW - 2 * pi
+            SELF_YAW = 2 * pi - SELF_YAW
+            SELF_YAW += pi / 2
 
         if 'cylinder_move' in jsoncmd.keys():
             print("[ROS][CYLINDER] :   " + str(jsoncmd['cylinder_move']))
@@ -448,7 +456,7 @@ class mainView(QMainWindow) :
 
 if __name__ == '__main__' :
     app = QApplication(sys.argv)
-    image = QImage('map_atr1f.png')
+    image = QImage('overview_atr_1f_.png')
     window = mainView()
     window.setImage(image)
     app.exec_()
