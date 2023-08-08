@@ -122,7 +122,7 @@ class MapView(QGraphicsView):
                 t.rotateRadians(SELF_YAW)
                 t.scale(0.15, 0.15)
                 selfimg = selfimg.transformed(t)
-                painter.drawPixmap(SELF_X-64-self.markerPoint[0], SELF_Y-64-self.markerPoint[1], selfimg)
+                painter.drawPixmap(SELF_X-40-self.markerPoint[0], SELF_Y-50-self.markerPoint[1], selfimg)
             painter.end()
             painter = None
 
