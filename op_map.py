@@ -18,7 +18,7 @@ from playsound import playsound
 # pip install playsound==1.2.2
 chimefile = '/Users/shogo/chime.wav'    # ファイル名は絶対パスで書く
 
-selfID = 'OP002SA'
+selfID = 'OP003SA'
 #targetID = 'CA003'
 targetID = 'CA004'
 
@@ -351,7 +351,7 @@ class mainView(QMainWindow) :
             rz = jsoncmd['ori_z']
             rw = jsoncmd['ori_w']
             log_info = ("[ROS][INFO]\n 【" + dt.strftime('%Y/%m/%d %H:%M:%S') + " 】\n [power]   " + str(round(tv, 4)) + ",\n [pos x]   " + str(round(tx, 4)) + ",\n [pos y]   " + str(round(ty, 4)) + ",\n [pos z]   " + str(round(jsoncmd['pos_z'], 4)) + ",\n [rot z]   " + str(round(rz, 4)) + ",\n [rot w]   " + str(round(rw, 4)))
-            print(log_info)
+            # print(log_info)
 
             self.battery.setValue(tv)        # UIにバッテリー残量を表示
             self.battery_value.setText(str(round(tv, 1)))
